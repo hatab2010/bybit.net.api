@@ -11,7 +11,7 @@ namespace bybit.net.api
     public abstract class BybitService
     {
         private static readonly string UserAgent = "bybit.net.api/" + VersionInfo.GetVersion;
-        private static readonly string CurrentTimeStamp = DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString();
+        //private static readonly string CurrentTimeStamp = DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString();
         private readonly string? apiKey;
         private readonly string? apiSecret;
         private readonly bool? useTestnet;
@@ -42,6 +42,7 @@ namespace bybit.net.api
         /// <returns>A task that represents the asynchronous operation. The task result contains the deserialized response object of type T.</returns>
         protected async Task<T?> SendPublicAsync<T>(string requestUri, HttpMethod httpMethod, Dictionary<string, object>? query = null)
         {
+            var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString();
             string? content = null;
             if (query is not null)
             {
@@ -55,7 +56,7 @@ namespace bybit.net.api
                     content = JsonConvert.SerializeObject(query);
                 }
             }
-            return await SendAsync<T>(requestUri, httpMethod, null, content);
+            return await SendAsync<T>(requestUri, httpMethod, currentTimeStamp, null, content);
         }
 
         /// <summary>
@@ -69,6 +70,7 @@ namespace bybit.net.api
         protected async Task<T?> SendSignedAsync<T>(string requestUri, HttpMethod httpMethod, Dictionary<string, object>? query = null)
         {
             StringBuilder queryStringBuilder = new();
+            var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString();
 
             if (query is not null)
             {
@@ -76,7 +78,7 @@ namespace bybit.net.api
             }
 
             string? signature = null, content = null;
-            IBybitSignatureService bybitSignatureService = new BybitHmacSignatureGenerator(apiKey, apiSecret, CurrentTimeStamp, BybitConstants.DEFAULT_REC_WINDOW);
+            IBybitSignatureService bybitSignatureService = new BybitHmacSignatureGenerator(apiKey, apiSecret, currentTimeStamp, BybitConstants.DEFAULT_REC_WINDOW);
             if (httpMethod == HttpMethod.Get)
             {
                 requestUri = queryStringBuilder.Length > 0 ? requestUri + "?" + queryStringBuilder.ToString() : requestUri;
@@ -88,7 +90,7 @@ namespace bybit.net.api
                 signature = bybitSignatureService.GeneratePostSignature(query ?? new Dictionary<string, object>());
             }
 
-            return await SendAsync<T>(requestUri, httpMethod, signature, content ?? null);
+            return await SendAsync<T>(requestUri, httpMethod, currentTimeStamp, signature, content ?? null);
         }
         #endregion
 
@@ -138,9 +140,9 @@ namespace bybit.net.api
         /// <param name="signature">Optional signature for authentication.</param>
         /// <param name="content">Optional content to include in the request body.</param>
         /// <returns>A task that represents the asynchronous operation. The task result contains the deserialized response object of type T or throws an exception if there's an issue.</returns>
-        private async Task<T?> SendAsync<T>(string requestUri, HttpMethod httpMethod, string? signature = null, string? content = null)
+        private async Task<T?> SendAsync<T>(string requestUri, HttpMethod httpMethod, string currentTimeStamp, string? signature = null, string? content = null)
         {
-            using HttpRequestMessage request = BuildHttpRequest(requestUri, httpMethod, signature, content);
+            using HttpRequestMessage request = BuildHttpRequest(requestUri, httpMethod, currentTimeStamp, signature, content);
 
             HttpResponseMessage response = await this.httpClient.SendAsync(request);
 
@@ -209,7 +211,7 @@ namespace bybit.net.api
         /// <param name="signature">Optional signature for authentication.</param>
         /// <param name="content">Optional content to include in the request body.</param>
         /// <returns>Http Request message</returns>
-        private HttpRequestMessage BuildHttpRequest(string requestUri, HttpMethod httpMethod, string? signature, string? content)
+        private HttpRequestMessage BuildHttpRequest(string requestUri, HttpMethod httpMethod, string currentTimeStamp, string? signature, string? content)
         {
             var baseUrl = (this.useTestnet ?? false) ? BybitConstants.HTTP_TESTNET_URL : BybitConstants.HTTP_MAINNET_URL;
             var request = new HttpRequestMessage(httpMethod, baseUrl + requestUri);
@@ -219,7 +221,7 @@ namespace bybit.net.api
             }
             request.Headers.Add("User-Agent", UserAgent);
             request.Headers.Add("X-BAPI-SIGN-TYPE", BybitConstants.DEFAULT_SIGN_TYPE);
-            request.Headers.Add("X-BAPI-TIMESTAMP", CurrentTimeStamp);
+            request.Headers.Add("X-BAPI-TIMESTAMP", currentTimeStamp);
             request.Headers.Add("X-BAPI-RECV-WINDOW", BybitConstants.DEFAULT_REC_WINDOW);
             if (this.apiKey is not null)
             {
