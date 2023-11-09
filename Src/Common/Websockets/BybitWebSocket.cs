@@ -182,7 +182,7 @@ namespace bybit.net.api.Websockets
                 await Task.Delay(TimeSpan.FromSeconds(10), token);
                 if (this.handler.State == WebSocketState.Open)
                 {
-                    await SendAsync("ping", CancellationToken.None);
+                    await SendAsync("{\"op\": \"ping\"}", CancellationToken.None);
                     await Console.Out.WriteLineAsync("ping sent");
                 }
             }
